@@ -161,7 +161,7 @@ more often than not, out of about 400 attempts.
 
 #+RESULTS:
 
-* Shift vs no Shift for everyplayer in the 2022 season
+* Shift vs no Shift for every player in the 2022 season
  Using a similar pie chart we can see the percentages of the shift for
  all players.
 [[img/totalpie.png]]
