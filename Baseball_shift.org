@@ -13,6 +13,9 @@
   A defensive shift is when a baseball team moves its fielders out of
   their standard positions to try and record more outs. There is no limit to
   how far or where they move. Example below.
+
+   [[../img/fielderpositions.png]]
+   
   #+begin_src R :results graphics file :file fielderpositions.png
         library(GeomMLBStadiums)
         library(ggplot2)
@@ -49,8 +52,8 @@
     p + s
   #+end_src
 
-  #+RESULTS:
-  [[file:fielderpositions.png]]
+  
+ 
 
 * Where does the data come from?
  The data used for this came from baseballsavant.mlb.com in the form
@@ -288,7 +291,6 @@ calculations to determine where the fielder should play.
 
 #+RESULTS:
 [[file:spray.png]]
-
 
 * Distance covered by outfielders
 The average baseball player can cover 90 feet in just over 4 seconds
