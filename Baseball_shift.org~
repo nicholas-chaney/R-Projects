@@ -1,0 +1,341 @@
+#+TITLE: Baseball shift creater presentation
+#+AUTHOR: Nick Chaney
+#+DATE: 11/29/22
+#+STARTUP: hideblocks overview indent inlineimages
+#+PROPERTY: header-args:R :exports both :results output :session *R*
+#+ATTR_HTML: :width="800px"
+
+* Question?
+  Can a model be made to generate an effective defensive shift for
+  outfielders in baseball?
+  
+* What is a defensive shift?
+  A defensive shift is when a baseball team moves its fielders out of
+  their standard positions to try and record more outs. There is no limit to
+  how far or where they move. Example below.
+  #+begin_src R :results graphics file :file fielderpositions.png
+        library(GeomMLBStadiums)
+        library(ggplot2)
+        library(patchwork)
+        library(dplyr)
+
+        par(mfrow = c(2,1))
+
+                                                #1B, 2B,  SS,  3B,  LF, CF,  RF
+        standx <- c(60, 30, -30, -60, -120, 0, 120)
+        standy <- c(80, 120, 120, 80, 240, 280, 240)
+        shiftx <- c(70, 60, 10, -45, -40, 80, 180)
+        shifty <- c(80, 125, 130, 100, 240, 280, 220)
+        standard_pos <- data.frame(standx,standy)
+        shift_pos <- data.frame(shiftx, shifty)
+        p <- ggplot(standard_pos,  aes(x = standx, y = standy)) +
+            geom_spraychart(stadium_ids = "cardinals", stadium_transform_coords = TRUE, stadium_segments = "all") +
+            geom_point(shape = 3,size = 3, color = "red")+
+            coord_fixed() +
+            theme_void() +
+
+            labs(title= "Standard Fielding Position") + theme(plot.title = element_text(hjust = 0.5))+
+            scale_color_discrete(name= "Legend", labels = c("Players"))
+
+        s <- ggplot(shift_pos,  aes(x = shiftx, y = shifty)) +
+            geom_spraychart(stadium_ids = "cardinals", stadium_transform_coords = TRUE, stadium_segments = "all") +
+            geom_point(shape = 3,size = 3, color = "red")+
+            coord_fixed() +
+            theme_void() +
+
+            labs(title= "Shifted Fielding Position Example") + theme(plot.title = element_text(hjust = 0.5))+
+            scale_color_discrete(name= "Legend", labels = c("Players"))
+
+    p + s
+  #+end_src
+
+  #+RESULTS:
+  [[file:fielderpositions.png]]
+
+* Where does the data come from?
+ The data used for this came from baseballsavant.mlb.com in the form
+ of a CSV file. This CSV file contains information on all balls put in
+ play during the 2022 MLB season. I used a function in the
+ geomMLBStadiums library to transform some of the data so it can be
+ used in a spray chart.
+ #+begin_src R
+   allplayers <- read.csv("ALLTEAMS.csv")
+#   head(allplayers %>% select(game_date, events, hc_x, hc_y, balls, strikes, outs_when_up, inning))
+   allplayers <- mlbam_xy_transformation(allplayers)
+   head(allplayers %>% select(game_date,player_name, events, hc_x_, hc_y_, balls, strikes))
+
+   #+end_src
+
+ #+RESULTS:
+ : 
+ :   game_date      player_name    events       hc_x_     hc_y_ balls strikes
+ : 1 9/29/2022 Langeliers, Shea field_out  -55.927987  74.07152     3       2
+ : 2 9/29/2022   Garcia, Dermis    single -119.268117 192.64084     1       2
+ : 3 9/29/2022    Winker, Jesse field_out  157.576667 182.80790     3       2
+ : 4 9/29/2022    Capel, Conner    single    2.271061 251.18929     1       2
+ : 5 9/29/2022     Raleigh, Cal    single   26.753593 256.82950     3       2
+ : 6 9/29/2022      Brown, Seth field_out  -11.654784 -56.25242     0       0
+
+* Graphing hits in the form of a spray chart
+ Using the package GeomMLBStadiums I am able to graph my data onto a
+ baseball field. To start I will use DJ LeMahieu and Carlos Santana's data to create
+ two spray charts of their hits.
+ #+begin_src R :results silent
+ player_name <- c("Santana, Carlos")
+   unique_player_names <- unique(allplayers$player_name)
+   head(unique_player_names)
+
+   player_x <- c(allplayers$hc_x_[which((allplayers$player_name == player_name) & (allplayers$events != "home_run"))])
+   player_y <- c(allplayers$hc_y_[which((allplayers$player_name == player_name) & (allplayers$events != "home_run"))])
+
+   playerDF <- data.frame(player_x, player_y)
+   
+  a <- ggplot(playerDF, aes(x = player_x, y = player_y, color= "red"))+
+    geom_spraychart(stadium_ids = "cardinals", stadium_transform_coords = TRUE, stadium_segments = "all")+
+    coord_fixed()+
+    theme_void()+
+    ggtitle(paste(player_name, " Spraychart"))
+
+
+#+end_src
+ #+begin_src R :results graphics file :file individualSprayChart.png
+    #ENTER PLAYER NAME BELOW
+    player_name <- c("LeMahieu, DJ")
+    unique_player_names <- unique(allplayers$player_name)
+    head(unique_player_names)
+
+    player_x <- c(allplayers$hc_x_[which((allplayers$player_name == player_name) & (allplayers$events != "home_run"))])
+    player_y <- c(allplayers$hc_y_[which((allplayers$player_name == player_name) & (allplayers$events != "home_run"))])
+
+    playerDF <- data.frame(player_x, player_y)
+
+   b <- ggplot(playerDF, aes(x = player_x, y = player_y, color= "red"))+
+     geom_spraychart(stadium_ids = "cardinals", stadium_transform_coords = TRUE, stadium_segments = "all")+
+     coord_fixed()+
+     theme_void()+
+     ggtitle(paste(player_name, " Spraychart"))
+
+b + a
+ #+end_src
+ 
+ #+RESULTS:
+ [[file:individualSprayChart.png]]
+ 
+* Create graph for best place to position outfielders
+For this graph, to start I removed the Home runs. This is
+because the shift can not prevent home runs and therefore should not
+be effected by them. This is easy since a part of the data is events
+so I just filter them out. Then I find the median of the groupings
+after finding where the groupings of hits are. I can then use these
+calculations to determine where the fielder should play.
+#+begin_src R :results silent
+
+  lfHitsx <- c()
+  lfHitsy <- c()
+  cfHitsx <- c()
+  cfHitsy <- c()
+  rfHitsx <- c()
+  rfHitsy <- c()
+  color <- c()
+  hitsx <- c()
+  hitsy <- c()
+  sz <- c()
+
+  forrange <- 1:length(player_x)
+  for(val in forrange){               
+      if(player_x[val] <= -85 & 280 >= player_y[val] & player_y[val] >= 130){
+          lfHitsx <- append(lfHitsx, player_x[val]) 
+          lfHitsy <- append(lfHitsy, player_y[val])
+          color <- append(color, "ball")
+          sz <- append(sz, 1.5)
+      }
+      if(player_x[val] > -35 & player_x[val] < 120 & player_y[val] <= 380 & player_y[val] >= 160){
+          cfHitsx <- append(cfHitsx, player_x[val]) 
+          cfHitsy <- append(cfHitsy, player_y[val])
+          color <- append(color, "ball")
+          sz <- append(sz, 1.5)
+      }
+      if(player_x[val] > 90 & player_y[val] <= 280 & player_y[val] >= 130){
+          rfHitsx <- append(rfHitsx, player_x[val]) 
+          rfHitsy <- append(rfHitsy, player_y[val])
+          color <- append(color, "ball")
+          sz <- append(sz, 1.5)
+      }
+  }
+
+  avglfx <- c(median(lfHitsx))
+  avglfy <- c(median(lfHitsy))
+
+  avgcfx <- c(median(cfHitsx))
+  avgcfy <- c(median(cfHitsy))
+
+  avgrfx <- c(median(rfHitsx))
+  avgrfy <- c(median(rfHitsy))
+
+
+  hitsx <- append(hitsx, lfHitsx)
+  hitsx <- append(hitsx, cfHitsx)
+  hitsx <- append(hitsx, rfHitsx)
+  hitsx <- append(hitsx, avgrfx)
+  hitsx <- append(hitsx, avglfx)
+  hitsx <- append(hitsx, avgcfx)
+  sz <- append(sz, 2.5)
+  sz <- append(sz, 2.5)
+  sz <- append(sz, 2.5)
+  color <- append(color, "player")
+  color <- append(color, "player")
+  color <- append(color, "player")
+
+  hitsy <- append(hitsy, lfHitsy)
+  hitsy <- append(hitsy, cfHitsy)
+  hitsy <- append(hitsy, rfHitsy)
+  hitsy <- append(hitsy, avgrfy)
+  hitsy <- append(hitsy, avglfy)
+  hitsy <- append(hitsy, avgcfy)
+
+  lfdf <- data.frame(hitsx, hitsy, color, sz)
+
+  first <- ggplot(lfdf, aes(x = hitsx, y =hitsy, col = color, pch = color))+
+      geom_spraychart(size= sz, stadium_ids = "cardinals", stadium_transform_coords = TRUE, stadium_segments = "all") +
+      coord_fixed()+
+      theme_void()+
+    ggtitle(paste(player_name, " Spraychart"))
+
+#+end_src
+
+#+begin_src R :results graphics file :file spray.png
+
+  player_name <- c("Santana, Carlos")
+
+     player_x <- c(allplayers$hc_x_[which((allplayers$player_name == player_name) & (allplayers$events != "home_run"))])
+     player_y <- c(allplayers$hc_y_[which((allplayers$player_name == player_name) & (allplayers$events != "home_run"))])
+
+     playerDF <- data.frame(player_x, player_y)
+
+      lfHitsx <- c()
+      lfHitsy <- c()
+      cfHitsx <- c()
+      cfHitsy <- c()
+      rfHitsx <- c()
+      rfHitsy <- c()
+      color <- c()
+      hitsx <- c()
+      hitsy <- c()
+      sz <- c()
+
+      forrange <- 1:length(player_x)
+      for(val in forrange){               
+          if(player_x[val] <= -85 & 280 >= player_y[val] & player_y[val] >= 130){
+              lfHitsx <- append(lfHitsx, player_x[val]) 
+              lfHitsy <- append(lfHitsy, player_y[val])
+              color <- append(color, "ball")
+              sz <- append(sz, 1.5)
+          }
+          if(player_x[val] > -60 & player_x[val] < 60 & player_y[val] <= 380 & player_y[val] >= 200){
+              cfHitsx <- append(cfHitsx, player_x[val]) 
+              cfHitsy <- append(cfHitsy, player_y[val])
+              color <- append(color, "ball")
+              sz <- append(sz, 1.5)
+          }
+          if(player_x[val] > 70 & player_x[val] < 180 & player_y[val] <= 300 & player_y[val] >= 160){
+              rfHitsx <- append(rfHitsx, player_x[val]) 
+              rfHitsy <- append(rfHitsy, player_y[val])
+              color <- append(color, "ball")
+              sz <- append(sz, 1.5)
+          }
+      }
+
+      avglfx <- c(median(lfHitsx))
+      avglfy <- c(median(lfHitsy))
+
+      avgcfx <- c(median(cfHitsx))
+      avgcfy <- c(median(cfHitsy))
+
+      avgrfx <- c(median(rfHitsx))
+      avgrfy <- c(median(rfHitsy))
+
+
+      hitsx <- append(hitsx, lfHitsx)
+      hitsx <- append(hitsx, cfHitsx)
+      hitsx <- append(hitsx, rfHitsx)
+      hitsx <- append(hitsx, avgrfx)
+      hitsx <- append(hitsx, avglfx)
+      hitsx <- append(hitsx, avgcfx)
+      sz <- append(sz, 2.5)
+      sz <- append(sz, 2.5)
+      sz <- append(sz, 2.5)
+      color <- append(color, "player")
+      color <- append(color, "player")
+      color <- append(color, "player")
+
+      hitsy <- append(hitsy, lfHitsy)
+      hitsy <- append(hitsy, cfHitsy)
+      hitsy <- append(hitsy, rfHitsy)
+      hitsy <- append(hitsy, avgrfy)
+      hitsy <- append(hitsy, avglfy)
+      hitsy <- append(hitsy, avgcfy)
+
+      lfdf <- data.frame(hitsx, hitsy, color, sz)
+
+      second <- ggplot(lfdf, aes(x = hitsx, y =hitsy, col = color, pch = color))+
+          geom_spraychart(size= sz, stadium_ids = "cardinals", stadium_transform_coords = TRUE, stadium_segments = "all") +
+          coord_fixed()+
+          theme_void()+
+        ggtitle(paste(player_name, " Spraychart"))
+
+    first + second
+#+end_src
+
+#+RESULTS:
+[[file:spray.png]]
+
+
+* Distance covered by outfielders
+The average baseball player can cover 90 feet in just over 4 seconds
+while the fastest can cover it in about 3.5 seconds. The average
+ball hit in the air takes roughly 4 seconds to land so as long as our
+outfielder is within 90 feet of where the ball lands he will more than
+likely make the play.
+#+begin_src R :results graphics file :file distance.png
+  distances <- c(0, 10,20,30,40,50,60,70,80,90)
+  avgPlayertime <- c(0, 0.89, 1.40, 1.84, 2.23, 2.61, 2.97, 3.32, 3.67, 4.03)
+  topPlayertime <- c(0, 0.80, 1.26, 1.66, 2.02, 2.37, 2.70, 3.02, 3.34, 3.66)
+
+  plot(distances, avgPlayertime, type='l', col="orange", xlim=c(0,90), xlab= "Distance covered in feet", ylab = "Time taken in sec", main = "Amount of time to run distances by \n an average and top MLB player")
+  lines(distances, topPlayertime, col="green")
+  legend("topleft" , legend=c("average player", "top player"), col = c("orange", "green"), lty=c(1,1))
+#+end_src
+
+#+RESULTS:
+[[file:distance.png]]
+
+* Conclusion
+ I feel like I have created a pretty effective model of where outfielders
+ should play based on the batter at that time. In the future I would
+ like to make my calculations for where the outfielders should play
+ more refined and to look at more players. I feel by doing this it
+ would create a more effective shift.
+
+* References
+
+ Dilday B., "GeomMLBStadiums: GeomMLBStadiums: Draw Major League
+  Baseball Stadiums with ggplot2"(2022). R package version 0.0.0.9000.
+  
+Hawke, Christopher John Jr., "Quantifying the Effect of The Shift in
+  Major League Baseball" (2017). Senior Projects Spring 2017. 191.
+
+Healey, G., "The new Moneyball: How ballpark sensors are changing
+  baseball" (2017). Proceedings of the IEEE, 105(11), 1999-2002.
+
+Murray, A.T., Ortiz, A. & Cho, S., "Enhancing strategic defensive
+  positioning and performance in the outfield" (2022). J Geogr Syst 24,
+  223-240.
+
+Pedersen, T., "patchwork: The Composer of Plots"(2022). R package
+  version 1.1.2.
+
+Wickham, H. , "ggplot2: Elegant Graphics for Data Analysis"(2016).
+  Springer-Verlag New York.
+
+Wickham H, François R, Henry L, Müller K., "dplyr: A Grammar of
+  Data Manipulation"(2022). R package version 1.0.10
