@@ -62,9 +62,16 @@
  geomMLBStadiums library to transform some of the data so it can be
  used in a spray chart.
  #+begin_src R
-   allplayers <- read.csv("ALLTEAMS.csv")
-#   head(allplayers %>% select(game_date, events, hc_x, hc_y, balls, strikes, outs_when_up, inning))
+   #Read data from .csv file
+   allplayers <- read.csv("ALLTEAMS.csv") 
+  
+   #prints the top lines to check that data was imported correctly
+   head(allplayers %>% select(game_date, events, hc_x, hc_y, balls, strikes, outs_when_up, inning)) 
+   
+   #run function to transform the x and y data of where the ball was hit so that it can be visualized
    allplayers <- mlbam_xy_transformation(allplayers)
+   
+   #prints the top lines to make sure the function ran correctly
    head(allplayers %>% select(game_date,player_name, events, hc_x_, hc_y_, balls, strikes))
 
    #+end_src
@@ -83,6 +90,8 @@
  Using the package GeomMLBStadiums I am able to graph my data onto a
  baseball field. To start I will use DJ LeMahieu and Carlos Santana's data to create
  two spray charts of their hits.
+ 
+ [[img/individualSprayChart.png]]
  #+begin_src R :results silent
  player_name <- c("Santana, Carlos")
    unique_player_names <- unique(allplayers$player_name)
@@ -122,7 +131,7 @@ b + a
  #+end_src
  
  #+RESULTS:
- [[file:individualSprayChart.png]]
+ 
  
 * Create graph for best place to position outfielders
 For this graph, to start I removed the Home runs. This is
@@ -131,6 +140,8 @@ be effected by them. This is easy since a part of the data is events
 so I just filter them out. Then I find the median of the groupings
 after finding where the groupings of hits are. I can then use these
 calculations to determine where the fielder should play.
+
+[[img/spray.png]]
 #+begin_src R :results silent
 
   lfHitsx <- c()
@@ -290,7 +301,7 @@ calculations to determine where the fielder should play.
 #+end_src
 
 #+RESULTS:
-[[file:spray.png]]
+
 
 * Distance covered by outfielders
 The average baseball player can cover 90 feet in just over 4 seconds
@@ -298,6 +309,8 @@ while the fastest can cover it in about 3.5 seconds. The average
 ball hit in the air takes roughly 4 seconds to land so as long as our
 outfielder is within 90 feet of where the ball lands he will more than
 likely make the play.
+
+[[img/distance.png]]
 #+begin_src R :results graphics file :file distance.png
   distances <- c(0, 10,20,30,40,50,60,70,80,90)
   avgPlayertime <- c(0, 0.89, 1.40, 1.84, 2.23, 2.61, 2.97, 3.32, 3.67, 4.03)
@@ -309,7 +322,7 @@ likely make the play.
 #+end_src
 
 #+RESULTS:
-[[file:distance.png]]
+
 
 * Conclusion
  I feel like I have created a pretty effective model of where outfielders
