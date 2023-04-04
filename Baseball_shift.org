@@ -14,7 +14,7 @@
   their standard positions to try and record more outs. There is no limit to
   how far or where they move. Example below.
 
-   [[../img/fielderpositions.png]]
+   [[img/fielderpositions.png]]
    
   #+begin_src R :results graphics file :file fielderpositions.png
         library(GeomMLBStadiums)
