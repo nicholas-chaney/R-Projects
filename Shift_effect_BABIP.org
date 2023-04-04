@@ -64,7 +64,7 @@
   
 * Spraychart of Andrew McCutchen shift vs. no shift
 In the spray chart below you can see every ball that Andrew McCutchen
-put into play where the field was shifted compared to when they field
+put into play where the field was shifted compared to when the field
 was standard.
 
 [[img/spray_McCutchen.png]]
@@ -90,7 +90,7 @@ was standard.
 #+RESULTS:
 
 * Andrew McCuthcen Shift vs Standard numbers
-The graph above is hard to tell a percentage of shift so I created
+The graph above is hard to tell a percentage of how often the field was in a shift, so I created
 a pie chart to see this better. As you can see the defense was shifted
 more often than not, out of about 400 attempts.
 [[img/pie.png]]
