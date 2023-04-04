@@ -1,0 +1,331 @@
+#+TITLE: Baseball shift effect on BABIP and number of hits presentation
+#+AUTHOR: Nick Chaney
+#+DATE: 11/30/22
+#+STARTUP: hideblocks overview indent inlineimages
+#+PROPERTY: header-args:R :exports both :results output :session *R*
+#+ATTR_HTML: :width="800px"
+
+* Question?
+  What effect does the deffensive shift in baseball have on a hitter's
+  number of hits and BABIP (The average of number of times a player
+  gets a hit on balls put into play).
+
+* What is a defensive shift in baseball?
+  A defensive shift is moving defensive players out of their standard
+  positioning to an area of the field that the batter is more likely
+  to hit the ball. Example of standard positioning vs shifted
+  positioning below.
+[[img/fielderpositions.png]]
+  #+begin_src R :results graphics file :file fielderpositions.png
+    library(GeomMLBStadiums)
+    library(ggplot2)
+    library(patchwork)
+    library(dplyr)
+
+    par(mfrow = c(2,1))
+
+                                            #Read in dataframes for later
+    mccutchen <- read.csv("savant_data.csv")
+    mccutchen <- mlbam_xy_transformation(mccutchen)
+
+    allplayers <- read.csv("ALLTEAMS.csv")
+    allplayers <- mlbam_xy_transformation(allplayers)
+                                            #Create positioning for standard players and shifted players
+                                            #1B, 2B,  SS,  3B,  LF, CF,  RF
+    standx <- c(60, 30, -30, -60, -120, 0, 120)
+    standy <- c(80, 120, 120, 80, 240, 280, 240)
+    shiftx <- c(70, 60, 10, -45, -40, 80, 180)
+    shifty <- c(80, 125, 130, 100, 240, 280, 220)
+    standard_pos <- data.frame(standx,standy)
+    shift_pos <- data.frame(shiftx, shifty)
+                                            #Standard positioning graph
+    p <- ggplot(standard_pos,  aes(x = standx, y = standy)) +
+        geom_spraychart(stadium_ids = "cardinals", stadium_transform_coords = TRUE, stadium_segments = "all") +
+        geom_point(shape = 3,size = 3, color = "red")+
+        coord_fixed() +
+        theme_void() +
+
+        labs(title= "Standard Fielding Position") + theme(plot.title = element_text(hjust = 0.5))+
+        scale_color_discrete(name= "Legend", labels = c("Players"))
+                                            #Shifted positioning graph
+    s <- ggplot(shift_pos,  aes(x = shiftx, y = shifty)) +
+        geom_spraychart(stadium_ids = "cardinals", stadium_transform_coords = TRUE, stadium_segments = "all") +
+        geom_point(shape = 3,size = 3, color = "red")+
+        coord_fixed() +
+        theme_void() +
+
+        labs(title= "Shifted Fielding Position Example") + theme(plot.title = element_text(hjust = 0.5))+
+        scale_color_discrete(name= "Legend", labels = c("Players"))
+                                            #Print shifted graph next to standard graph
+    p + s
+  #+end_src
+
+  #+RESULTS:
+  
+* Spraychart of Andrew McCutchen shift vs. no shift
+In the spray chart below you can see every ball that Andrew McCutchen
+put into play where the field was shifted compared to when they field
+was standard.
+
+[[img/spray_McCutchen.png]]
+#+begin_src R :results graphics file :file sprayMcCutchen.png
+  mccutchen$of_fielding_alignment <- factor(mccutchen$of_fielding_alignment, levels = c("Standard", "Shifted"))
+
+  mccutchen$of_fielding_alignment[is.na(mccutchen$of_fielding_alignment)] <- "Shifted"
+
+  mccutchen$if_fielding_alignment <- factor(mccutchen$if_fielding_alignment, levels = c("Standard", "Shifted"))
+
+  mccutchen$if_fielding_alignment[is.na(mccutchen$if_fielding_alignment)] <- "Shifted"
+
+  shifted <- (mccutchen$if_fielding_alignment == "Shifted" | mccutchen$of_fielding_alignment == "Shifted")
+
+
+
+  ggplot(mccutchen, aes(x = hc_x_, y = hc_y_, color = shifted)) +
+      geom_spraychart(stadium_ids = "cardinals", stadium_transform_coords = TRUE, stadium_segments = "all") +
+      coord_fixed() +
+      theme_void()+ guides(color = guide_legend(title = "Is shifted?")) + ggtitle("Spray chart with the Shifted Defense vs Standard Defense \n for Andrew McCutchen") + theme(plot.title = element_text(hjust = 0.5))
+#+end_src
+
+#+RESULTS:
+
+* Andrew McCuthcen Shift vs Standard numbers
+The graph above is hard to tell a percentage of shift so I created
+a pie chart to see this better. As you can see the defense was shifted
+more often than not, out of about 400 attempts.
+[[img/pie.png]]
+#+begin_src R :results silent
+
+  hits <- c("single","double","triple","home_run")
+  outs <- c("field_out","force_out","sac_fly","double_play","grounded_into_double_play")
+
+  all_player_outs <- allplayers$events[!(allplayers$events %in% hits)]
+  all_player_hits <- allplayers$events[allplayers$events %in% hits]
+
+  all_hits <- mccutchen$events[mccutchen$events %in% hits]
+  summary(all_hits)
+  all_outs <- mccutchen$events[!(mccutchen$events %in% hits)]
+  summary(all_outs)
+  length(all_hits)
+  length(all_outs)
+  length(all_outs) + length(all_hits)
+  summary(mccutchen$of_fielding_alignment)
+  summary(mccutchen$if_fielding_alignment)
+
+  length(all_player_outs)
+  length(all_player_hits)
+  shift <- (mccutchen$if_fielding_alignment == "Shifted" |mccutchen$of_fielding_alignment == "Shifted")   # used as index for when the field is playing a shift
+
+
+  shift_outs <- !((mccutchen$events[shift == TRUE]) %in% hits)  # finds instances of outs when the field was playing a shift
+  num_so <- length(which(shift_outs))
+
+
+
+  shift_hits <- (mccutchen$events[shift == TRUE]) %in% hits  # finds instances of hits when the field was playing a shift
+  num_sh <-length(which(shift_hits))
+
+
+  standard_hits <-(mccutchen$events[shift == FALSE]) %in% hits  # finds instances of hits when the field was playing Standard defense
+  num_sth <- length(which(standard_hits))
+
+  standard_outs <- (mccutchen$events[shift == FALSE]) %in% outs  # finds instances of outs when the field was playing Standard defense
+  num_sto <- length(which(standard_outs))
+
+
+
+#+end_src
+
+ #+begin_src R :results graphics file :width 1000 :file pie.png
+   library(lattice)
+   library(scales)
+      xline = c(num_so, num_sh,num_so + num_sh, num_sto, num_sth , num_sto + num_sth, num_sto + num_sth + num_so + num_sh)
+        names(xline) = c("Shift_Outs", "Shift_Hits", "Total_Shift", "Standard_Outs", "Standard_Hits", "Total_Standard", "Total_Balls_In_Play")
+
+           piedf <- data.frame(titles = c("Total shift", "Total Standard"), number = c(xline[3],xline[6]))
+           total = xline[7]
+           piedf
+           total
+
+           xline = c(num_so, num_sh,num_so + num_sh, num_sto, num_sth , num_sto + num_sth, num_sto + num_sth + num_so + num_sh)
+           names(xline) = c("Shift_Outs", "Shift_Hits", "Total_Shift", "Standard_Outs", "Standard_Hits", "Total_Standard", "Total_Balls_In_Play")
+
+           pie_chart <- ggplot(piedf, aes(x="", y=number, fill=titles)) +
+               geom_bar(width = 1, stat = "identity") +
+               coord_polar("y", start=0, direction = 1) +
+               geom_text(aes(y = number/2 + c(0, cumsum(number)[-length(number)]),
+                             label = percent((number[2:1]/total),accuracy = .001)), size=5)+
+             labs(fill = "Category", x = NULL, y = NULL, title = "% of shift vs % of standard for Andrew McCutchen")
+           pie_chart
+#+end_src
+
+#+RESULTS:
+
+* Shift vs no Shift for everyplayer in the 2022 season
+ Using a similar pie chart we can see the percentages of the shift for
+ all players.
+[[img/totalpie.png]]
+#+begin_src R :results graphics file :width 1000 :file totalpie.png
+
+  allplayers$of_fielding_alignment <- factor(allplayers$of_fielding_alignment, levels = c("Standard", "Shifted"))
+
+  allplayers$of_fielding_alignment[is.na(allplayers$of_fielding_alignment)] <- "Shifted"
+
+  allplayers$if_fielding_alignment <- factor(allplayers$if_fielding_alignment, levels = c("Standard", "Shifted"))
+
+  allplayers$if_fielding_alignment[is.na(allplayers$if_fielding_alignment)] <- "Shifted"
+
+  totalshift <- sum(allplayers$if_fielding_alignment == "Shifted" | allplayers$of_fielding_alignment == "Shifted")
+
+  totalstandard <- length(allplayers$of_fielding_alignment) - totalshift
+
+  alltotal <- totalshift + totalstandard
+  percentageshift <- totalshift / length(allplayers$of_fielding_alignment)
+
+  percentagestandard <- 1 - percentageshift
+
+  percentagestandard
+  percentageshift
+
+  totalstandard
+  totalshift
+  alltotal
+  allpiedf <- data.frame(titles = c("Total Shift", "Total Standard"), number= c(totalshift, totalstandard))
+
+ pie_chart2 <- ggplot(allpiedf, aes(x="", y=number, fill=titles)) +
+               geom_bar(width = 1, stat = "identity") +
+               coord_polar("y", start=0, direction = 1) +
+               geom_text(aes(y = number/2 + c(0, cumsum(number)[-length(number)]),
+                             label = percent((number[2:1]/alltotal ),accuracy = .001)), size=5)+
+             labs(fill = "Category", x = NULL, y = NULL, title = "% of shift vs % of standard for all players in 2022")
+           pie_chart2
+
+#+end_src
+
+#+RESULTS:
+
+* Hits and Outs based on the shift
+ Using a bar chart we can see the number of hits and outs that were
+ made based on wether the field was shifted or not.
+ [[img/totalbar.png]]
+ #+begin_src R :results graphics file :width 1000 :file totalbar.png
+    shift <- (allplayers$if_fielding_alignment == "Shifted" |allplayers$of_fielding_alignment == "Shifted")   # used as index for when the field is playing a shift
+
+
+    shift_outs <- !((allplayers$events[shift == TRUE]) %in% hits)  # finds instances of outs when the field was playing a shift
+    num_so <- length(which(shift_outs))
+
+
+
+    shift_hits <- (allplayers$events[shift == TRUE]) %in% hits  # finds instances of hits when the field was playing a shift
+    num_sh <-length(which(shift_hits))
+
+
+    standard_hits <-(allplayers$events[shift == FALSE]) %in% hits  # finds instances of hits when the field was playing Standard defense
+    num_sth <- length(which(standard_hits))
+
+    standard_outs <- (allplayers$events[shift == FALSE]) %in% outs  # finds instances of outs when the field was playing Standard defense
+    num_sto <- length(which(standard_outs))
+
+    xline <- c(num_so, num_sto, num_sh, num_sth, num_so + num_sh, num_sto + num_sth, num_sto + num_sth + num_so + num_sh)
+   # xline <- c(num_so, num_sh,num_so + num_sh, num_sto, num_sth , num_sto + num_sth, num_sto + num_sth + num_so + num_sh)
+    names(xline) <- c("Shift_Outs", "Standard_Outs", "Shift_Hits", "Standard_Hits", "Total_Shift", "Total_Standard", "Total_Balls_In_Play")
+    color <- c("red", "blue", "red", "blue", "red", "blue", "purple")
+    bardf <- data.frame(xline, names(xline), color)
+
+    bardf[,2] <- factor(bardf[,2], levels = bardf[,2])
+    ggplot(bardf,aes(x=bardf[,2],y=bardf[,1],fill=bardf[,3]))+
+        geom_bar(stat = "identity", width = .6, position = "identity") + theme_grey(base_size = 20)+ 
+        scale_x_discrete(guide = guide_axis(n.dodge=2)) +
+     labs(x = "Types of balls put in play", y = "Number of observations",fill="Legend",  title = "Hits and Outs based on shifted or standard defense")
+
+ #+end_src
+
+ #+RESULTS:
+ 
+* BABIP based on shift
+ The shift reduced the BABIP(Batting Average on Balls In Play) as is
+ shown below. With the shift the average BABIP was .316 and whithout
+ the shift it was .329. Using these percentages we can assume this
+ trend would continue and we canalso determine
+ that if the shift was used for all balls put in play there would have
+ been 118,638*.316 = 37,489 hits. Doing the same thing for standard
+ there would have been 39,031 hits. This shows that the number of hits
+ would be reduced by roughly 1500 hits.
+
+ [[img/allplayers_percentage_of_hits_shift.png]]
+ #+begin_src R :results graphics file :width 1000 :file allplayers_percentage_of_hits_shift.png
+     all_shifthits <- num_sh
+     all_shiftouts <- num_so
+     all_shiftdf <- data.frame(titles = c("shift hits", "shift outs"), number = c(all_shifthits,all_shiftouts))
+     all_total = all_shifthits+all_shiftouts
+     all_shiftdf
+     all_total
+
+     all_shift_hits_pie <- ggplot(all_shiftdf, aes(x="", y=number, fill=titles)) +
+         geom_bar(width = 1, stat = "identity") +
+         coord_polar("y", start=0, direction = -1) +
+         geom_text(aes(y = number/2 + c(0, cumsum(number)[-length(number)]),
+                       label = percent((number/(all_shifthits + all_shiftouts)),accuracy = .0001)), size=5,position = position_stack(vjust = 1))+labs(fill = "Category",
+                                                                                                                                x = NULL,
+                                                                                                                                y = NULL,
+                                                                                                                                title = "% of Hits vs % of Outs With Defensive Shift for all players")+
+         theme(plot.title = element_text(hjust = .5))
+     
+
+   all_standardhits <- num_sth
+    all_standardouts <- num_sto
+    all_standarddf <- data.frame(titles = c("standard hits", "standard outs"), number = c(all_standardhits,all_standardouts))
+    all_total = all_standardhits+all_standardouts
+    all_standarddf
+    all_total
+
+    all_standard_hits_pie <- ggplot(all_standarddf, aes(x="", y=number, fill=titles)) +
+        geom_bar(width = 1, stat = "identity") +
+        coord_polar("y", start=0, direction = -1) +
+        geom_text(aes(y = number/2 + c(0, cumsum(number)[-length(number)]),
+                      label = percent((number/all_total ),accuracy = .0001)), size=5,position = position_stack(vjust = .5))+labs(fill = "Category",
+                                                                                                                                 x = NULL,
+                                                                                                                                 y = NULL,
+                                                                                                                                 title = "% of Hits vs % of Outs Without Defensive Shift for all players")+
+        theme(plot.title = element_text(hjust = 0.5))
+   all_shift_hits_pie + all_standard_hits_pie
+#+end_src
+
+#+RESULTS:
+
+* Conclusion
+ After doing this research I found that using the shift reduces BABIP
+ from .329 down to .316. It also reduced hits by around 1,500 total
+ hits. 
+* References
+
+Dilday B., "GeomMLBStadiums: GeomMLBStadiums: Draw Major League
+  Baseball Stadiums with ggplot2"(2022). R package version 0.0.0.9000.
+  
+Hawke, Christopher John Jr., "Quantifying the Effect of The Shift in
+  Major League Baseball" (2017). Senior Projects Spring 2017. 191.
+
+Healey, G., "The new Moneyball: How ballpark sensors are changing
+  baseball" (2017). Proceedings of the IEEE, 105(11), 1999-2002.
+
+Murray, A.T., Ortiz, A. & Cho, S., "Enhancing strategic defensive
+  positioning and performance in the outfield" (2022). J Geogr Syst 24,
+  223-240.
+
+Pedersen, T., "patchwork: The Composer of Plots"(2022). R package
+  version 1.1.2.
+
+Sarkar, Deepayan., "Lattice: Multivariate Data Visualization with
+  R. Springer, New York" (2008). ISBN 978-0-387-75968-5
+
+Wickham, H. , "ggplot2: Elegant Graphics for Data Analysis"(2016).
+  Springer-Verlag New York.
+
+Wickham H, François R, Henry L, Müller K., "dplyr: A Grammar of
+  Data Manipulation"(2022). R package version 1.0.10
+
+Wickham H, Seidel D., "scales: Scale Functions for
+  Visualization" (2022). R package version 1.2.1,
+
+
